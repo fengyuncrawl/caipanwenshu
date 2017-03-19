@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from urllib import request,parse
-import gzip,re，requests,time,random
+import gzip,re,requests,time,random
 import orm_panjueshu
 import myproxy
 import asyncio
