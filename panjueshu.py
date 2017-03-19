@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 
 from urllib import request,parse
-import gzip,re
+import gzip,re，requests,time,random
 import orm_panjueshu
+import myproxy
 import asyncio
 from model_panjueshu import panjueshu
-
 loop=asyncio.get_event_loop()
 
 def create(loop):
@@ -26,7 +26,8 @@ def test(name,types,num,court,dates,url,docid,proced='null',cause='null',area='n
 	yield from p.save()
 
 loop.run_until_complete(create(loop))
-def Index(num_index):
+def getcontent(num_index):
+	global ip_time,proxy_ip
 	str_index=str(num_index)
 	url='http://wenshu.court.gov.cn/List/ListContent'
 
@@ -37,7 +38,7 @@ def Index(num_index):
 	'Direction':'asc'
 
 	}
-	send_data=parse.urlencode(data).encode('utf-8')
+	#send_data=parse.urlencode(data).encode('utf-8')
 	headers={'X-Requested-With': 'XMLHttpRequest',
 	'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
 	#'User-Agent': 'Mozilla/5.0 (Windows NT 6.3; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.122 Safari/537.36 SE 2.X MetaSr 1.0',
@@ -46,27 +47,25 @@ def Index(num_index):
 	#'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 ',
 	'Connection': 'keep-alive','Host': 'wenshu.court.gov.cn'
 	}
-	req=request.Request(url,send_data,headers)
-	resp=request.urlopen(req)
-	resp_ungzip=ungzip(resp.read())
-	response=resp_ungzip.decode('utf-8')
+	if not proxy_ip or (int(time.time())-ip_time) > 300:
+		proxy_ip={'http':'http://%s'%random.choice(myproxy.get_ip())}
+		ip_time=int(time.time())
+	resp=requests.post(url,data=data,headers=headers,proxies=proxy_ip,time_out=60)
+	respons=resp.text
 
 	#response=dict(response)
 	#print(response)
 	with open('wenjian.txt','w') as f:
-		f.write(response)
+		f.write(respons)
 	pattern=re.compile(r'"文书ID\\":\\"(.*?)\\"')
-	id_list=re.findall(pattern,response)
+	id_list=re.findall(pattern,respons)
 	print(id_list)
-	return id_list
-	
-def download_id(id_list):
-
 	for id in id_list:
-		try:
+		try:		
 			url_content='http://wenshu.court.gov.cn/content/content?DocID=%s'%id
-			req_content=request.Request(url_content)
-			resp_content=request.urlopen(req_content).read().decode('utf-8')
+			resp_content=requests.get(url_content).text
+			
+			#resp_content=request.urlopen(req_content).read().decode('utf-8')
 			#print(resp_content)
 			pattern_docid=re.compile(r'"文书ID":"(.*?)"')
 			docid=re.findall(pattern_docid,resp_content)
@@ -87,9 +86,10 @@ def download_id(id_list):
 			print('%s爬取失败'%name)
 
 if __name__=='__main__':
-	for i in range(1,2):
-		list_id=Index(i)
-		download_id(list_id)
+	proxy_ip=None
+	ip_time=0
+	for i in range(1,1000):
+		Index(i)
 		
 		
 
