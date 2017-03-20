@@ -1,0 +1,30 @@
+import scrapy,re
+from panjueshu.items import PanjueshuItem
+
+class PanjueshuSpider(scrapy.Spider):
+    name='panjueshu'
+    allowed_domains=['wenshu.court.gov.cn']
+    start_urls=['http://wenshu.court.gov.cn/list/list/?sorttype=1&conditions=searchWord+2016+++%E8%A3%81%E5%88%A4%E5%B9%B4%E4%BB%BD:2016']
+
+    #def start_requests(self):
+        #return [scrapy.FormRequest('http://wenshu.court.gov.cn/List/ListContent',formdata={'Param':'裁判年份:2016','Page':'20','Order':'法院层级','Index':'1','Direction':'asc'},headers={'X-Requested-With': 'XMLHttpRequest','Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8','User-Agent': 'Mozilla/5.0 (Macintosh; PPC Mac OS X; U; en) Opera 8.0','Connection': 'keep-alive','Host': 'wenshu.court.gov.cn'},callback=self.parse_id)]
+    def parse(self,response):
+        return [scrapy.FormRequest('http://wenshu.court.gov.cn/List/ListContent',formdata={'Param':'裁判年份:2016','Page':'20','Order':'法院层级','Index':'1','Direction':'asc'},headers={'X-Requested-With': 'XMLHttpRequest','Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8','User-Agent': 'Mozilla/5.0 (Macintosh; PPC Mac OS X; U; en) Opera 8.0','Connection': 'keep-alive','Host': 'wenshu.court.gov.cn'},callback=self.parse_id)]
+
+    def parse_id(self,response):
+        #print(response.body)
+        pattern=re.compile(r'"文书ID\\":\\"(.*?)\\"')
+        id_list=re.findall(pattern,response.body.decode('utf-8'))
+        #print(id_list)
+        for ids in id_list:
+            url_content='http://wenshu.court.gov.cn/content/content?DocID=%s'%ids
+            yield scrapy.Request(url_content,callback=self.parse_content)
+
+    def parse_content(self,response):
+        item=PanjueshuItem()
+        caseinfo=response.xpath('//input[@id="hidCaseInfo"]/@value')[0]
+        item['name']=caseinfo.re(r'"案件名称":"(.*?)"')[0]
+        item['docid']=caseinfo.re(r'"文书ID":"(.*?)"')[0]
+        item['proced']=caseinfo.re(r'"审判程序":"(.*?)"')[0]
+        item['types']=caseinfo.re(r'"案件类型":"(.*?)"')[0]
+        yield item
