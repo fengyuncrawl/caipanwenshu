@@ -1,15 +1,19 @@
-import scrapy,re
-from myscrapy.items import PanjueshuItem
+import scrapy,re,random
+from panjueshu.items import PanjueshuItem
 import mysql.connector
 class PanjueshuSpider(scrapy.Spider):
-    name='panjueshu'
+    name='caipanwenshu'
     allowed_domains=['wenshu.court.gov.cn']
     start_urls=['http://wenshu.court.gov.cn/Index']
-
+    user_agents=['Mozilla/5.0 (Windows NT 6.3; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.122 Safari/537.36 SE 2.X MetaSr 1.0',
+                 'Mozilla/5.0 (Macintosh; PPC Mac OS X; U; en) Opera 8.0',
+                 'Mozilla/5.0 (Windows NT 6.3; WOW64; rv:52.0) Gecko/20100101 Firefox/52.0',
+                 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95'
+        ]
     #def start_requests(self):
         #return [scrapy.FormRequest('http://wenshu.court.gov.cn/List/ListContent',formdata={'Param':'裁判年份:2016','Page':'20','Order':'法院层级','Index':'1','Direction':'asc'},headers={'X-Requested-With': 'XMLHttpRequest','Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8','User-Agent': 'Mozilla/5.0 (Macintosh; PPC Mac OS X; U; en) Opera 8.0','Connection': 'keep-alive','Host': 'wenshu.court.gov.cn'},callback=self.parse_id)]
     def parse(self,response):
-        return scrapy.FormRequest('http://wenshu.court.gov.cn/List/ListContent',formdata={'Param':'裁判年份:2016','Page':'20','Order':'法院层级','Index':'3','Direction':'asc'},headers={'X-Requested-With': 'XMLHttpRequest','Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8','User-Agent': 'Mozilla/5.0 (Windows NT 6.3; WOW64; rv:52.0) Gecko/20100101 Firefox/52.0','Connection': 'keep-alive','Host': 'wenshu.court.gov.cn'},callback=self.parse_id)
+        return scrapy.FormRequest('http://wenshu.court.gov.cn/List/ListContent',formdata={'Param':'裁判年份:2016','Page':'20','Order':'法院层级','Index':'4','Direction':'asc'},headers={'X-Requested-With': 'XMLHttpRequest','Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8','User-Agent': random.choice(self.user_agents),'Connection': 'keep-alive','Host': 'wenshu.court.gov.cn'},callback=self.parse_id)
 
     def parse_id(self,response):
         #print(response.body)
@@ -41,14 +45,13 @@ class PanjueshuSpider(scrapy.Spider):
         item=response.meta['item']
         list_content=response.xpath("//div[@style='LINE-HEIGHT: 25pt;TEXT-ALIGN:justify;TEXT-JUSTIFY:inter-ideograph; TEXT-INDENT: 30pt; MARGIN: 0.5pt 0cm;FONT-FAMILY: 仿宋; FONT-SIZE: 16pt;']/text()").extract()
         item['content'] = ''.join(list_content)
-        conn = mysql.connector.connect(user='root', password='password', database='caipan')
+        conn = mysql.connector.connect(user='root', password='', database='caipan')
         cursor = conn.cursor()
         cursor.execute('insert into panjueshu (name,docid,proced,types,url,num,court,dates,cause,content) values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)', [item['name'],item['docid'],item['proced'],item['types'],item['url'],item['num'],item['court'],item['dates'],item['cause'],item['content']])
         conn.commit()
         cursor.close()
         conn.close()
         return item
-
 
 
 
