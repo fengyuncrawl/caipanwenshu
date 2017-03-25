@@ -1,6 +1,7 @@
 import scrapy,re,random
 from panjueshu.items import PanjueshuItem
-import mysql.connector
+#import mysql.connector
+import pymysql
 class PanjueshuSpider(scrapy.Spider):
     name='caipanwenshu'
     allowed_domains=['wenshu.court.gov.cn']
@@ -66,7 +67,7 @@ class PanjueshuSpider(scrapy.Spider):
                 pattern2=re.compile(r'<div style=01lydyh01line-height: 25pt; text-indent: 30pt; margin: 0.5pt 0cm; font-family: 宋体; font-size: 15pt01lydyh01>(.*?)</div>')
                 list_content=re.findall(pattern2,response.body.decode('utf-8'))
                 item['content'] = ''.join(list_content)
-        conn = mysql.connector.connect(user='root', password='', database='caipan')
+        conn = pymysql.connect(user='root', password='', database='caipan', charset='utf8')
         cursor = conn.cursor()
         cursor.execute('insert into panjueshu (name,docid,proced,types,url,num,court,dates,cause,content) values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)', [item['name'],item['docid'],item['proced'],item['types'],item['url'],item['num'],item['court'],item['dates'],item['cause'],item['content']])
         conn.commit()
