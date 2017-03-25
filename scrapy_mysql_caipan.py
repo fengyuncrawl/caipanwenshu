@@ -13,7 +13,8 @@ class PanjueshuSpider(scrapy.Spider):
     #def start_requests(self):
         #return [scrapy.FormRequest('http://wenshu.court.gov.cn/List/ListContent',formdata={'Param':'裁判年份:2016','Page':'20','Order':'法院层级','Index':'1','Direction':'asc'},headers={'X-Requested-With': 'XMLHttpRequest','Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8','User-Agent': 'Mozilla/5.0 (Macintosh; PPC Mac OS X; U; en) Opera 8.0','Connection': 'keep-alive','Host': 'wenshu.court.gov.cn'},callback=self.parse_id)]
     def parse(self,response):
-        return scrapy.FormRequest('http://wenshu.court.gov.cn/List/ListContent',formdata={'Param':'裁判年份:2016','Page':'20','Order':'法院层级','Index':'4','Direction':'asc'},headers={'X-Requested-With': 'XMLHttpRequest','Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8','User-Agent': random.choice(self.user_agents),'Connection': 'keep-alive','Host': 'wenshu.court.gov.cn'},callback=self.parse_id)
+        for index in range(11,12):
+            yield scrapy.FormRequest('http://wenshu.court.gov.cn/List/ListContent',formdata={'Param':'裁判年份:2016','Page':'20','Order':'法院层级','Index':str(index),'Direction':'asc'},headers={'X-Requested-With': 'XMLHttpRequest','Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8','User-Agent': random.choice(self.user_agents),'Connection': 'keep-alive','Host': 'wenshu.court.gov.cn'},callback=self.parse_id)
 
     def parse_id(self,response):
         #print(response.body)
@@ -27,7 +28,10 @@ class PanjueshuSpider(scrapy.Spider):
     def parse_next(self,response):
         item=PanjueshuItem()
         caseinfo=response.xpath('//input[@id="hidCaseInfo"]/@value')
-        item['name']=caseinfo.re(r'"案件名称":"(.*?)"')[0]
+        try:
+            item['name']=caseinfo.re(r'"案件名称":"(.*?)"')[0]
+        except:
+            pass
         item['docid']=caseinfo.re(r'"文书ID":"(.*?)"')[0]
         item['proced']=caseinfo.re(r'"审判程序":"(.*?)"')[0]
         item['types']=caseinfo.re(r'"案件类型":"(.*?)"')[0]
@@ -35,7 +39,14 @@ class PanjueshuSpider(scrapy.Spider):
         item['num']=caseinfo.re(r'"案号":"(.*?)"')[0]
         item['court']=caseinfo.re(r'"法院名称":"(.*?)"')[0]
         item['dates']=caseinfo.re(r'"裁判日期":(.*?)')[0]
-        item['cause']=caseinfo.re(r'"诉讼记录段原文":"(.*?)"')[0]
+        try:
+            item['cause']=caseinfo.re(r'"诉讼记录段原文":"(.*?)"')[0]
+        except:
+            pass
+        try:
+            item['area']=caseinfo.re(r'"法院省份":"(.*?)"')[0]
+        except:
+            pass
         #item['area']=caseinfo.re(r'')
         url_content=r'http://wenshu.court.gov.cn/CreateContentJS/CreateContentJS.aspx?DocID=%s'%item['docid']
         
@@ -44,7 +55,17 @@ class PanjueshuSpider(scrapy.Spider):
     def parse_content(self,response):
         item=response.meta['item']
         list_content=response.xpath("//div[@style='LINE-HEIGHT: 25pt;TEXT-ALIGN:justify;TEXT-JUSTIFY:inter-ideograph; TEXT-INDENT: 30pt; MARGIN: 0.5pt 0cm;FONT-FAMILY: 仿宋; FONT-SIZE: 16pt;']/text()").extract()
-        item['content'] = ''.join(list_content)
+        if list_content:
+            item['content'] = ''.join(list_content)
+        else:
+            pattern1=re.compile(r'<div style=01lydyh01LINE-HEIGHT: 25pt; TEXT-INDENT: 30pt; MARGIN: 0.5pt 0cm;FONT-FAMILY: 宋体; FONT-SIZE: 15pt;01lydyh01>(.*?)</div>')
+            list_content=re.findall(pattern1,response.body.decode('utf-8'))
+            if list_content:
+                item['content'] = ''.join(list_content)
+            else:
+                pattern2=re.compile(r'<div style=01lydyh01line-height: 25pt; text-indent: 30pt; margin: 0.5pt 0cm; font-family: 宋体; font-size: 15pt01lydyh01>(.*?)</div>')
+                list_content=re.findall(pattern2,response.body.decode('utf-8'))
+                item['content'] = ''.join(list_content)
         conn = mysql.connector.connect(user='root', password='', database='caipan')
         cursor = conn.cursor()
         cursor.execute('insert into panjueshu (name,docid,proced,types,url,num,court,dates,cause,content) values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)', [item['name'],item['docid'],item['proced'],item['types'],item['url'],item['num'],item['court'],item['dates'],item['cause'],item['content']])
@@ -52,6 +73,3 @@ class PanjueshuSpider(scrapy.Spider):
         cursor.close()
         conn.close()
         return item
-
-
-
